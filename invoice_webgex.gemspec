@@ -10,12 +10,12 @@ Gem::Specification.new do |spec|
 
   spec.summary = "Gocase and Webgex Integration"
   spec.description = "Encoder and Requester used by gocase to communicate with Webgex services"
-  spec.homepage = "url"
+  spec.homepage = 'https://github.com/anachronicsofa/invoice_webgex'
   spec.required_ruby_version = ">= 2.6.0"
 
   spec.metadata["allowed_push_host"] = "TODO: Set to your gem server 'https://example.com'"
 
-  spec.metadata["homepage_uri"] = 'https://github.com/anachronicsofa/invoice_webgex'
+  spec.metadata["homepage_uri"] = s.homepage
   spec.metadata["source_code_uri"] = "https://github.com/anachronicsofa/invoice_webgex"
   spec.metadata["changelog_uri"] = "https://github.com/anachronicsofa/invoice_webgex"
 

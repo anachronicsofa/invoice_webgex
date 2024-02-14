@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative 'encoders/totem'
+require_relative 'invoice_webgex/encoders/totem'
 
 module InvoiceWebgex
   class << self

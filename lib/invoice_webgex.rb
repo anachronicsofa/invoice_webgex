@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require File.expand_path('../invoice_webgex/encoders', __FILE__)
+require 'invoice_webgex/encoders/totem'
 
 module InvoiceWebgex
   class << self

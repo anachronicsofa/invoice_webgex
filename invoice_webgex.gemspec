@@ -15,7 +15,7 @@ Gem::Specification.new do |spec|
 
   spec.metadata["allowed_push_host"] = "TODO: Set to your gem server 'https://example.com'"
 
-  spec.metadata["homepage_uri"] = s.homepage
+  spec.metadata["homepage_uri"] = "https://github.com/anachronicsofa/invoice_webgex"
   spec.metadata["source_code_uri"] = "https://github.com/anachronicsofa/invoice_webgex"
   spec.metadata["changelog_uri"] = "https://github.com/anachronicsofa/invoice_webgex"
 

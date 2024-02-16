@@ -1,15 +1,16 @@
 module InvoiceWebgex::Encoders
   class Base
     def initialize(order)
-      @order = order
+      @order = order.with_indifferent_access
+      @order_type = 'PV'
     end
 
     def encode_order
       {
         "codigopedidolegado": @order[:id],
         "codunidade":	'20003',
-        "tipo": 'PV',
-        "codcentrocustoresultado": nature,
+        "tipo": @order_type,
+        "codcentrocustoresultado": cost_result_centre,
         "cpfcnpjempregado":	"051.076.713-30",
         "cpfcnpjtransportador": carrier_cnpj,
         "valor": @order[:total],
@@ -231,6 +232,10 @@ module InvoiceWebgex::Encoders
 
     def nature
       CPF.new(cpf_cnpj).valid? ? 'PF' : 'LT'
+    end
+
+    def cost_result_centre
+      nature == "PF" ? "0104" : "0406"
     end
 
     private

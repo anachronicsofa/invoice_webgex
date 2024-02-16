@@ -1,7 +1,7 @@
 module InvoiceWebgex
   module Encoders
     class Totem
-      def initialize order
+      def initialize(order)
         @order = order
       end
 
@@ -48,11 +48,11 @@ module InvoiceWebgex
         }
       end
 
-      def to_date date
+      def to_date(date)
         date.to_datetime.strftime("%Y-%m-%d")
       end
 
-      def to_hour date
+      def to_hour(date)
         date.to_datetime.strftime("%H:%M:%S")
       end
 
@@ -69,7 +69,7 @@ module InvoiceWebgex
         end
       end
 
-      def item_hash item
+      def item_hash(item)
         {
           cc_fil:     @order[:unity_code],          # Código da Filial (Obrigatório) - Igual do Pedido
           cc_ped:     @order[:id],                  # Código Único do Pedido (Obrigatório)

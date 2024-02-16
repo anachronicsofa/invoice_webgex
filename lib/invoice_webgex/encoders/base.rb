@@ -2,15 +2,13 @@ module InvoiceWebgex::Encoders
   class Base
     def initialize(order)
       @order = order.with_indifferent_access
-      @order_type = 'PV'
-      @is_reseller, @use_ipi = false, false
     end
 
     def encode_order
       {
         "codigopedidolegado": @order[:id],
         "codunidade":	@order[:unity_code],
-        "tipo": @order_type,
+        "tipo": order_type,
         "codcentrocustoresultado": cost_result_centre,
         "cpfcnpjempregado":	"051.076.713-30",
         "cpfcnpjtransportador": carrier_cnpj,
@@ -26,57 +24,11 @@ module InvoiceWebgex::Encoders
     end
 
     def client
-      {
-        "nomecompleto":	@order[:receiver][:name],
-        "nomefantasia":	@order[:receiver][:name],
-        "naturezajuridica":	nature,
-        "inscestadual": @order[:receiver][:state_registration] || "ISENTO",
-        "cpfcnpj": cpf_cnpj,
-        "sexo":	"F",
-        "contribuinteicms": icms_contributor,
-        "datanascimento": "",
-        "enderecolegal": address,
-        "enderecocobranca":	address,
-        "contato": contact
-      }
+      InvoiceWebgex::Handlers::EncodeClient.call(order: @order, address: address)
     end
 
     def address
-      {
-        "codpais": 1058,
-        "cep": zipcode,
-        "codmunicipio":	@order[:receiver][:ibge_code],
-        "logradouro":	format_address(@order[:receiver][:address]),
-        "numeroendereco":	format_number(@order[:receiver][:number]),
-        "complemento": format_complement(@order[:receiver][:complement]),
-        "bairro":	format_neighborhood(@order[:receiver][:neighborhood]),
-        "municipio": @order[:receiver][:city],
-        "uf": @order[:receiver][:uf].presence || @order[:receiver][:state]
-      }
-    end
-
-    def adjust_total_price!(webgex_opportunity)
-      total_invoice = webgex_opportunity[:valor]
-      total_items = webgex_opportunity[:itens].sum do |item|
-        item[:valorfrete] + item[:valorunitario] * item[:quantidade]
-      end
-
-      price_difference = total_invoice - total_items
-      return if price_difference.abs < 0.01
-
-      webgex_opportunity[:valor] -= price_difference 
-    end
-
-    def adjust_item_prices!(items)
-      items.each do |item|
-        total_price = item[:valortotal]
-        calculated_price = item[:valorfrete] + item[:valorunitario] * item[:quantidade]
-        price_difference = total_price - calculated_price
-
-        next if price_difference.abs < 0.01
-
-        item[:valortotal] = (item[:valortotal] - price_difference).round(2)
-      end
+      InvoiceWebgex::Handlers::EncodeAddress.call(@order)
     end
 
     def encode_items
@@ -95,16 +47,12 @@ module InvoiceWebgex::Encoders
       ).generate
     end
 
-    def quote_string(v)
-      Invoice.connection.raw_connection.escape_string(v)
+    def carrier_cnpj
+      InvoiceWebgex::Handlers::CarrierCnpj.call(@order[:carrier_name])
     end
 
-    def zipcode
-      return if @order[:receiver][:zipcode].blank?
-
-      zipcode = @order[:receiver][:zipcode].gsub('-','')
-      zipcode = zipcode.size < 8 ? "0#{zipcode}" : zipcode
-      "#{zipcode[0..1]}.#{zipcode[2..4]}-#{zipcode[5..7]}"
+    def cost_result_centre
+      CPF.new(cpf_cnpj).valid? ? "0104" : "0406"
     end
 
     def cpf_cnpj
@@ -117,16 +65,8 @@ module InvoiceWebgex::Encoders
       end
     end
 
-    def carrier_cnpj
-      InvoiceWebgex::Handlers::CarrierCnpj.call(@order[:carrier_name])
-    end
-
-    def nature
-      CPF.new(cpf_cnpj).valid? ? 'PF' : 'LT'
-    end
-
-    def cost_result_centre
-      nature == "PF" ? "0104" : "0406"
+    def order_type
+      'PV'
     end
 
     private
@@ -137,33 +77,6 @@ module InvoiceWebgex::Encoders
 
     def format_time(date)
       date.to_datetime.strftime("%H:%M")
-    end
-
-    def icms_contributor
-      nature == "PF" ? "N" : "S"
-    end
-
-    def contact
-      {
-        "celular1":	"",
-        "email": @order[:receiver][:email]
-      }
-    end
-
-    def format_address(address)
-      address.blank? ? "S/E" : quote_string(address[0..59])
-    end
-
-    def format_number(number)
-      number.blank? ? "S/N" : number[0..9]
-    end
-
-    def format_complement(complement)
-      complement.blank? ? 'S/C' : quote_string(complement[0..30])
-    end
-
-    def format_neighborhood(neighborhood)
-      neighborhood.blank? || neighborhood.size < 2 ? "S/B" : quote_string(neighborhood[0..30])
     end
   end
 end

@@ -3,6 +3,7 @@ module InvoiceWebgex::Encoders
     def initialize(order)
       @order = order.with_indifferent_access
       @order_type = 'PV'
+      @is_reseller, @use_ipi = false, false
     end
 
     def encode_order
@@ -79,104 +80,12 @@ module InvoiceWebgex::Encoders
     end
 
     def encode_items
-      items = []
-
-      @order[:nfe].each do |nfe_item|
-        price = nfe_item[:price] 
-        total = total_item_value(price, nfe_item[:quantity])
-        product_code = nfe_item[:product_code]
-        freight_value = nfe_item[:freight] ? (nfe_item[:freight] * nfe_item[:quantity]).round(2) : (item_freight * nfe_item[:quantity]).round(2)
-
-        item = {
-          "codigoproduto": product_code,
-          "quantidade":	nfe_item[:quantity],
-          "valorunitario": price,
-          "valordesconto": 0,
-          "valorfrete": freight_value,
-          "valortotal":	(total + freight_value).round(2),
-          "pesounitario": nfe_item[:material_weight]
-        }
-
-        items << item
-      end
-
-      if !@order[:nfs].blank?
-        if nfse_total != 0
-          items << {
-            "codigoproduto":"S000001",
-            "quantidade":1,
-            "valorunitario": nfse_total,
-            "valordesconto":0,
-            "valorfrete":0,
-            "valortotal": nfse_total,
-            "descricaofaturamento": @order[:nfs_description]
-          }
-        end
-      end
-
-      max_item = items.max_by { |item| item[:valortotal] }
-      difference = @order[:total] - items.map{|item| item[:valortotal] }.sum
-      item_difference = difference / max_item[:quantidade]
-      max_item[:valorfrete] = (max_item[:valorfrete] + difference).round(2) if max_item[:valorfrete] > 0
-      max_item[:valortotal] = (max_item[:valortotal] + difference).round(2)
-
-      items
-    end
-
-    def adjust_negative_item_values(items)
-      interations = 0
-
-      loop do
-        interations += 1
-
-        items.each do |item|
-          item[:valorunitario] = [item[:valorunitario], 0.01].max
-          item[:valortotal] = (item[:valorunitario] * item[:quantidade] + item[:valorfrete]).round(2)
-        end
-    
-        current_total = items.sum { |item| item[:valortotal] }
-        difference = @order[:total].round(2) - current_total.round(2)
-    
-        if difference != 0
-          max_value_item = items.max_by { |item| item[:valorunitario] }
-          max_value_item[:valorunitario] += (difference / max_value_item[:quantidade])
-          max_value_item[:valortotal] = (max_value_item[:valorunitario] * max_value_item[:quantidade] + max_value_item[:valorfrete]).round(2)
-          max_value_item[:valorunitario] = max_value_item[:valorunitario].round(2)
-        end
-
-        if interations > 1000
-          raise 'Não conseguimos calcular o valor dos itens de forma que não fiquem negativo, abrir chamado.'
-        end
-
-        break if current_total.round(2) == @order[:total].round(2)
-      end
-    
-      items
-    end
-
-    def set_items_values(items)
-      difference = @order[:total] - items.map{|item| item[:valortotal] }.sum
-      items.map{ |item| item.merge!(valortotal: (item[:valortotal] + difference).round(2)) }
-      items.map{ |item| item.merge!(valorfrete: (item[:valorfrete] + difference).round(2)) }
-
-      items
-    end
-
-    def item_freight
-      items_qty = 0
-      @order[:nfe].each{|nfe_item| items_qty += nfe_item[:quantity]}
-      ((@order[:shipping] || 0 ) / items_qty.to_f).round(2)
-    end
-
-    def nfse_total
-      total = 0
-      @order[:nfs].each{|item| total += item[:price] * item[:quantity]}
-      total.round(2)
+      InvoiceWebgex::Handlers::EncodeItems.call(order: @order, is_reseller: @is_reseller, use_ipi: @use_ipi)
     end
 
     def payment_data
       number_of_parcels = @order[:payment_details][:number_of_parcels].to_i
-      number_of_parcels = 1 if number_of_parcels.nil?
+      number_of_parcels = 1 if number_of_parcels.zero?
       Unigex::Payment::Parcels.new(
         total_value: @order[:total], 
         parcels: number_of_parcels, 
@@ -184,10 +93,6 @@ module InvoiceWebgex::Encoders
         type: 'online',
         payment_details: @order[:payment_details]
       ).generate
-    end
-
-    def total_item_value(value, quantity)
-      (value * quantity).round(2)
     end
 
     def quote_string(v)
@@ -213,21 +118,7 @@ module InvoiceWebgex::Encoders
     end
 
     def carrier_cnpj
-      case @order[:carrier_name] || 'CORREIOS'
-        when 'Now Logistica'                        then return '20.712.076/0001-57'
-        when 'TRANSFOLHA'                           then return '58.818.022/0001-43'
-        when 'TOTAL EXPRESS'                        then return '11.040.167/0001-00'
-        when 'CORREIOS'                             then return '34.028.316/0001-03'
-        when 'NTLOG'                                then return '29.761.819/0001-53'
-        when 'FASTVIA'                              then return '26.405.676/0001-59'
-        when 'LOGGI'                                then return '18.277.493/0001-77'
-        when 'DIALOGO'                              then return '21.930.065/0006-10'
-        when 'CARRIERS' || 'INFRACOMMERCE CARRIERS' then return '10.520.136/0001-86'
-        when 'SEQUOIA'                              then return '01.599.101/0001-93'
-        when 'MERCADOENVIO'                         then return '20.121.850/0019-84'
-        when 'INFRACOMMERCE LOGGI'                  then return '24.217.653/0001-95'
-        when 'INFRACOMMERCE TOTAL EXPRESS'          then return '73.939.449/0001-93'
-      end
+      InvoiceWebgex::Handlers::CarrierCnpj.call(@order[:carrier_name])
     end
 
     def nature

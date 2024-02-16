@@ -2,8 +2,12 @@ module InvoiceWebgex::Encoders
   class Losses < Base
     def initialize(order)
       @order = order.with_indifferent_access
-      @order[:total] = set_order_total
+      @order.merge!({
+        total: set_order_total, 
+        unity_code: '20003'
+      })
       @order_type = set_order_type
+      @use_ipi = true
     end
 
     def payment_data
@@ -38,6 +42,7 @@ module InvoiceWebgex::Encoders
 
         items << item
       end
+
       items
     end
 
@@ -51,6 +56,10 @@ module InvoiceWebgex::Encoders
       return 'PR' if !@order[:id]&.include?("[manual]")
 
       @order[:type_of_sale] || 'PP'
+    end
+
+    def total_item_value(value, quantity)
+      (value * quantity).round(2)
     end
   end
 end

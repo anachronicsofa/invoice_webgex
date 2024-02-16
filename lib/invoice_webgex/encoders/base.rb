@@ -8,7 +8,7 @@ module InvoiceWebgex::Encoders
     def encode_order
       {
         "codigopedidolegado": @order[:id],
-        "codunidade":	'20003',
+        "codunidade":	@order[:unity_code],
         "tipo": @order_type,
         "codcentrocustoresultado": cost_result_centre,
         "cpfcnpjempregado":	"051.076.713-30",
